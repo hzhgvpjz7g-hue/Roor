@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.BtcRadar" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0C1118</item>
+    </style>
+</resources>
