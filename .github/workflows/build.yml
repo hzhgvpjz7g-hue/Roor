@@ -1,0 +1,65 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build release
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          gradle assembleRelease --no-daemon --stacktrace --continue 2>&1 | tee build.log
+
+      - name: Collect output
+        if: always()
+        run: |
+          mkdir -p out
+          cp build.log out/ 2>/dev/null || echo "no log" > out/build.log
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          {
+            echo "outcome=${{ steps.build.outcome }}"
+            echo "sha=${{ github.sha }}"
+            echo "build_tools=$BT"
+          } > out/status.txt
+          for f in app/build/outputs/apk/release/*.apk; do
+            [ -f "$f" ] && "$BT/zipalign" -p -f 4 "$f" out/app-release-unsigned.apk
+          done
+          cp "$BT/lib/apksigner.jar" out/ || true
+          ls -la out
+
+      - name: Publish to apk-out branch
+        if: always()
+        run: |
+          cd out
+          git init -q -b apk-out
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "build ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" apk-out
