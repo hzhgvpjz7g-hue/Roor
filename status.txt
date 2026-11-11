@@ -1,0 +1,3 @@
+outcome=success
+sha=feb5230b1a4f2b9e3266954132aac8c79d949b06
+build_tools=/usr/local/lib/android/sdk/build-tools/37.0.0
